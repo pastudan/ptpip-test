@@ -50,7 +50,7 @@ const eventClient = new net.Socket()
 
 commandClient.connect(port, host, function () {
   console.log('Command Connected')
-  const payload = PTPPacketGenerator.initCommandRequest('ffffffffffffffffffffffffffffffff', 'slider')
+  const payload = PTPPacketGenerator.initCommandRequest('ffffffffffffffffffffffffffffffff', 'PTPIP Test')
   commandClient.write(payload)
 })
 
