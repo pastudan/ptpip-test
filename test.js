@@ -57,15 +57,14 @@ commandClient.connect(port, host, function () {
 commandClient.on('data', function (data) {
   const typeInt = data.readUInt16LE(4)
   const type = Object.keys(PTPPacketType).find(key => PTPPacketType[key] === typeInt)
-
-  console.log(type)
+  console.log(`Received Command Packet of type ${type}`)
 
   switch (typeInt) {
     case PTPPacketType.InitCommandAck:
       const connectionNumber = data.readUInt16LE(8)
       const guid = data.toString('hex', 12, 28)
       const hostname = data.toString('utf16le', 28, data.length - 6)
-      console.log(`Received: ${type} | Con# ${connectionNumber} | ${guid} | ${hostname}`)
+      console.log(`Received: ${type} | Connection #: ${connectionNumber} | ${guid} | ${hostname}`)
       eventClient.connect(port, host, function () {
         console.log('Event Connected')
         const payload = PTPPacketGenerator.InitEventRequest(connectionNumber)
@@ -83,19 +82,25 @@ commandClient.on('close', function () {
 
 eventClient.on('data', function (data) {
   const typeInt = data.readUInt16LE(4)
+
+  const type = Object.keys(PTPPacketType).find(key => PTPPacketType[key] === typeInt)
+  console.log(`Received Event Packet of type ${type}`)
+
   switch (typeInt) {
+
+    // If the init was successful then extend the lens and start the intervalometer
     case PTPPacketType.InitEventAck:
-      commandClient.write(Buffer.from('120000000600000002000000109101000000', 'hex'))
-      commandClient.write(Buffer.from('1400000009000000010000000c00000000000000', 'hex'))
-      commandClient.write(Buffer.from('180000000c000000930000000c000000b0d1000008000000', 'hex'))
+      // G7X extend lens. From what I can tell this is a non-standard PTP packet, and
+      // there is some additional data in the "End Data Packet" that wireshark doesn't
+      // recognize (the data starting at c000000b0d1000008000000).
+      commandClient.write(Buffer.from('120000000600000002000000109101000000', 'hex')) //Operation Code: CANON_EOS_SetDevicePropValueEx (0x9110)
+      commandClient.write(Buffer.from('1400000009000000010000000c00000000000000', 'hex')) //Packet Type: Start Data Packet (0x00000009)
+      commandClient.write(Buffer.from('180000000c000000930000000c000000b0d1000008000000', 'hex')) //Packet Type: End Data Packet (0x0000000c)
+
+      // Trigger shutter & release every X sec
       setInterval(function () {
-
-        // G7X extend lens
-
-        commandClient.write(Buffer.from('1a000000060000000100000028919a0100000300000001000000', 'hex')) // 9a01
-        // then release: 16000000060000000100000029919c01000003000000
-        commandClient.write(Buffer.from('16000000060000000100000029919c01000003000000', 'hex')) // 9a01
-
+        commandClient.write(Buffer.from('1a000000060000000100000028919a0100000300000001000000', 'hex')) // trigger shutter [Operation Code: CANON_EOS_RemoteReleaseOn (0x9128)]
+        commandClient.write(Buffer.from('16000000060000000100000029919c01000003000000', 'hex')) // release shutter [Operation Code: CANON_EOS_RemoteReleaseOff (0x9129)]
       }, 3000)
 
       break
