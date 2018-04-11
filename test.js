@@ -90,18 +90,37 @@ eventClient.on('data', function (data) {
 
     // If the init was successful then extend the lens and start the intervalometer
     case PTPPacketType.InitEventAck:
-      // G7X extend lens. From what I can tell this is a non-standard PTP packet, and
-      // there is some additional data in the "End Data Packet" that wireshark doesn't
-      // recognize (the data starting at c000000b0d1000008000000).
-      commandClient.write(Buffer.from('120000000600000002000000109101000000', 'hex')) //Operation Code: CANON_EOS_SetDevicePropValueEx (0x9110)
-      commandClient.write(Buffer.from('1400000009000000010000000c00000000000000', 'hex')) //Packet Type: Start Data Packet (0x00000009)
-      commandClient.write(Buffer.from('180000000c000000930000000c000000b0d1000008000000', 'hex')) //Packet Type: End Data Packet (0x0000000c)
 
-      // Trigger shutter & release every X sec
-      setInterval(function () {
-        commandClient.write(Buffer.from('1a000000060000000100000028919a0100000300000001000000', 'hex')) // trigger shutter [Operation Code: CANON_EOS_RemoteReleaseOn (0x9128)]
-        commandClient.write(Buffer.from('16000000060000000100000029919c01000003000000', 'hex')) // release shutter [Operation Code: CANON_EOS_RemoteReleaseOff (0x9129)]
-      }, 3000)
+      // OpenSession (not sure what this is or if needed... taken from wireshark)
+      commandClient.write(Buffer.from('16000000060000000100000002100000000041000000', 'hex'))
+
+      // Needed to prevent camera connection timeout
+      setTimeout(function () {
+        // Operation Code: CANON_EOS_SetRemoteMode (0x9114)
+        commandClient.write(Buffer.from('16000000060000000100000014910100000015000000', 'hex'))
+      }, 1000)
+
+      setTimeout(function () {
+
+        // G7X extend lens. From what I can tell this is a non-standard PTP packet, and
+        // there is some additional data in the "End Data Packet" that wireshark doesn't
+        // recognize (the data starting at c000000b0d1000008000000).
+        commandClient.write(Buffer.from('120000000600000002000000109101000000', 'hex')) //Operation Code: CANON_EOS_SetDevicePropValueEx (0x9110)
+        commandClient.write(Buffer.from('1400000009000000010000000c00000000000000', 'hex')) //Packet Type: Start Data Packet (0x00000009)
+        commandClient.write(Buffer.from('180000000c000000930000000c000000b0d1000008000000', 'hex')) //Packet Type: End Data Packet (0x0000000c)
+
+        // Trigger shutter & release every X sec
+        setInterval(function () {
+          commandClient.write(Buffer.from('1a000000060000000100000028919a0100000300000001000000', 'hex')) // trigger shutter [Operation Code: CANON_EOS_RemoteReleaseOn (0x9128)]
+          commandClient.write(Buffer.from('16000000060000000100000029919c01000003000000', 'hex')) // release shutter [Operation Code: CANON_EOS_RemoteReleaseOff (0x9129)]
+        }, 3000)
+
+        // Send keepalive packet X sec
+        setInterval(function () {
+          commandClient.write(Buffer.from('1200000006000000010000002f9013000000', 'hex')) // keepalive?
+        }, 5000)
+
+      }, 2000)
 
       break
   }
