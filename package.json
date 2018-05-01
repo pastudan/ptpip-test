@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "buffer-reverse": "^1.0.1"
+    "buffer-reverse": "^1.0.1",
+    "node-ssdp": "^3.3.0",
+    "request": "^2.85.0",
+    "xml-js": "^1.6.2"
   }
 }
